@@ -1,0 +1,2 @@
+timestamp_utc,label,model,feature_mode,split_date,train_rows,test_rows,n_features,mse,rmse,mae,r2,stability,selected_features
+2026-04-19T21:43:10+00:00,starter_ols,ols,autoregressive,2022-01-31,499511,152734,5,2576970.789964428,1605.294611578955,598.8406496516046,0.9999043299846373,1.0,"[""zhvi_lag_1"", ""zhvi_lag_12"", ""zhvi_mom_growth"", ""zhvi_yoy_growth"", ""log_zhvi_lag_1""]"
