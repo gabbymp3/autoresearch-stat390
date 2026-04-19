@@ -1,0 +1,31 @@
+name: Frozen Files Check
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  frozen-files-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Block edits to frozen files
+        shell: bash
+        run: |
+          changed_files="$(git diff --name-only origin/${{ github.base_ref }}...HEAD)"
+          frozen_files=(
+            "prepare.py"
+            "run.py"
+            "src/data_preprocess.py"
+            "src/utils.py"
+          )
+
+          for file in "${frozen_files[@]}"; do
+            if grep -Fxq "$file" <<< "$changed_files"; then
+              echo "Frozen file changed: $file"
+              exit 1
+            fi
+          done
