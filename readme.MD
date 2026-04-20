@@ -1,4 +1,4 @@
-# AutoResearch for Feature Selection in Panel Data
+# AutoResearch for Feature Selection in Panel Data - Predicting Housing Prices
 
 This repository studies a panel-data feature selection problem for county-level housing prices. The core question is:
 
