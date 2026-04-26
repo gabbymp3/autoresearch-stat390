@@ -77,10 +77,20 @@ def engineer_features(
 
     grouped_target = frame.groupby(group_col)[target_col]
     frame["zhvi_lag_1"] = grouped_target.shift(1)
+    frame["zhvi_lag_2"] = grouped_target.shift(2)
+    frame["zhvi_lag_3"] = grouped_target.shift(3)
+    frame["zhvi_lag_6"] = grouped_target.shift(6)
     frame["zhvi_lag_12"] = grouped_target.shift(12)
+    frame["zhvi_lag_24"] = grouped_target.shift(24)
+    frame["zhvi_mom_growth"] = grouped_target.pct_change(1)
+    frame["zhvi_3m_growth"] = grouped_target.pct_change(3)
+    frame["zhvi_6m_growth"] = grouped_target.pct_change(6)
     frame["zhvi_yoy_growth"] = grouped_target.pct_change(12)
+    frame["zhvi_2yr_growth"] = grouped_target.pct_change(24)
     frame["zhvi_log"] = np.log(frame[target_col].clip(lower=1.0))
     frame["zhvi_log_lag_1"] = frame.groupby(group_col)["zhvi_log"].shift(1)
+    # momentum acceleration: change in month-over-month growth rate
+    frame["zhvi_mom_accel"] = frame.groupby(group_col)["zhvi_mom_growth"].diff(1)
 
     numeric_cols = frame.select_dtypes(include=["number"]).columns.tolist()
     candidate_covariates = [
@@ -91,13 +101,27 @@ def engineer_features(
         not in {
             target_col,
             "zhvi_lag_1",
+            "zhvi_lag_2",
+            "zhvi_lag_3",
+            "zhvi_lag_6",
             "zhvi_lag_12",
+            "zhvi_lag_24",
+            "zhvi_mom_growth",
+            "zhvi_3m_growth",
+            "zhvi_6m_growth",
+            "zhvi_2yr_growth",
             "zhvi_yoy_growth",
+            "zhvi_mom_accel",
             "zhvi_log",
             "zhvi_log_lag_1",
         }
         and not column.endswith("_fips")
         and not column.endswith("_lag_1")
+        and column not in {
+            "zhvi_lag_2", "zhvi_lag_3", "zhvi_lag_6", "zhvi_lag_24",
+            "zhvi_mom_growth", "zhvi_3m_growth", "zhvi_6m_growth",
+            "zhvi_2yr_growth", "zhvi_mom_accel",
+        }
     ]
 
     lagged_covariates: list[str] = []
@@ -109,8 +133,17 @@ def engineer_features(
 
     simple_features = [
         "zhvi_lag_1",
+        "zhvi_lag_2",
+        "zhvi_lag_3",
+        "zhvi_lag_6",
         "zhvi_lag_12",
+        "zhvi_lag_24",
+        "zhvi_mom_growth",
+        "zhvi_mom_accel",
+        "zhvi_3m_growth",
+        "zhvi_6m_growth",
         "zhvi_yoy_growth",
+        "zhvi_2yr_growth",
         "zhvi_log_lag_1",
     ]
     simple_features += keep_columns_that_exist(

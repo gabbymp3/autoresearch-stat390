@@ -3,9 +3,9 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import Lasso, LinearRegression
+from sklearn.linear_model import Lasso, LinearRegression, Ridge
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -21,6 +21,16 @@ def build_model(model_name: str = "ols", random_state: int = 42, **kwargs: Any) 
             ]
         )
 
+    if model_name == "ridge":
+        alpha = float(kwargs.pop("alpha", 1.0))
+        return Pipeline(
+            steps=[
+                ("imputer", SimpleImputer(strategy="median")),
+                ("scaler", StandardScaler()),
+                ("model", Ridge(alpha=alpha, **kwargs)),
+            ]
+        )
+
     if model_name == "lasso":
         alpha = float(kwargs.pop("alpha", 0.1))
         return Pipeline(
@@ -32,18 +42,18 @@ def build_model(model_name: str = "ols", random_state: int = 42, **kwargs: Any) 
         )
 
     if model_name == "random_forest":
-        n_estimators = int(kwargs.pop("n_estimators", 200))
-        max_depth = kwargs.pop("max_depth", 8)
+        max_iter = int(kwargs.pop("max_iter", 300))
+        max_depth = kwargs.pop("max_depth", 5)
+        learning_rate = float(kwargs.pop("learning_rate", 0.05))
         return Pipeline(
             steps=[
-                ("imputer", SimpleImputer(strategy="median")),
                 (
                     "model",
-                    RandomForestRegressor(
-                        n_estimators=n_estimators,
+                    HistGradientBoostingRegressor(
+                        max_iter=max_iter,
                         max_depth=max_depth,
+                        learning_rate=learning_rate,
                         random_state=random_state,
-                        n_jobs=-1,
                         **kwargs,
                     ),
                 ),
