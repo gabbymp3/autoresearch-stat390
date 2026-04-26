@@ -1,90 +1,105 @@
-# Program Instructions
+# AutoResearch Agent Instructions
 
+## Objective
 
-Optimize for:
+Minimize out-of-sample RMSE and MSE on the county-level housing price task.
 
-- low out-of-sample MSE
-- stable feature selection across time splits and model families
-- parsimonious, interpretable feature sets
+The target is always `zhvi`.
 
-## Research Constraints
+The goal is to find a feature set and model that work well on the fixed holdout test set while staying relatively simple and interpretable.
 
-The following must remain fixed:
+## Project-Specific Context
 
-- dataset and time range
-- target variable (`zhvi`)
-- county-level panel structure
-- time-aware train/test split
+This project predicts county-level Zillow Home Value Index (`zhvi`) over time.
 
-The agent may modify:
+The agent is allowed to search over:
 
-- feature sets
+- feature choices
 - feature engineering choices
-- model family
+- model choice
 - model hyperparameters
 
-## Frozen Files
+The agent is not allowed to change:
 
-Do not modify:
+- the dataset
+- the target variable
+- the county panel structure
+- the train/test split
 
-- `prepare.py`
-- `run.py`
-- `src/data_preprocess.py`
-- `src/utils.py`
+## Rules
 
-## Mutable Files
-
-The search space lives in:
-
-- `feature_engineering.py`
-- `model.py`
-
-All other files should be treated as fixed.
-
-## What The Agent Is Allowed To Change
-
-- which features are used
-- how features are created
-- which model is used
-- model hyperparameters
-
-## What Good Solutions Look Like
-
-- low out-of-sample MSE
-- stable feature choices across training windows
-- simple models that are easy to explain
-
-## Required Functions
-
-`feature_engineering.py` must return:
+- You may ONLY modify `feature_engineering.py` and `model.py`.
+- `prepare.py`, `run.py`, `src/data_preprocess.py`, and `src/utils.py` are FROZEN.
+- The test set is fixed for every run.
+- The test set starts on `2024-01-31`.
+- The agent cannot choose or change the time split.
+- `engineer_features()` must keep the same function signature and return:
 
 ```python
 (engineered_df, feature_cols)
 ```
 
-`model.py` must provide:
+- `build_model()` must keep the same function signature and return an sklearn-compatible estimator.
+- `extract_selected_features()` must keep the same function signature.
+- Do not use future information when building features.
+- Build features in county-date order.
+- Keep solutions at an undergrad data science level: clear, simple, and explainable.
+- Do not add new files or new dependencies.
+- Do not download external data.
 
-```python
-build_model(...)
-extract_selected_features(...)
-```
+## Current Feature / Model Setup
 
-## Modeling Rules
+The current experiment setup supports:
 
-- Never use future information to build current-period predictors.
-- Preserve county-month ordering before creating lags or growth rates.
-- Prefer simpler feature sets when performance is comparable.
-- If baseline covariates are unavailable, do not claim a true baseline comparison.
+- feature modes: `baseline`, `simple`, `auto`
+- model choices: `ols`, `lasso`, `random_forest`
 
-## Baseline Specification
-
-The intended baseline uses:
+The intended baseline is based on:
 
 - `zhvi_lag_1`
-- `mortgage_rate`
-- `unemployment_rate`
-- `median_income`
+- `mortgage_rate_lag_1`
+- `unemployment_rate_lag_1`
+- `median_income_lag_1`
 
-## Logging
+If those county-level baseline columns are missing, do not claim a true baseline improvement.
 
-Each experiment should append one row to `results.csv` with metrics, model metadata, and selected features.
+## Workflow
+
+1. Read `feature_engineering.py` and `model.py`.
+2. Choose one simple change to test.
+3. Edit only `feature_engineering.py` and/or `model.py`.
+4. Run:
+
+```bash
+python3 run.py --model <model_name> --feature-mode <feature_mode> --label "description_of_change"
+```
+
+5. Check the test metrics in the output and in `results.csv`.
+6. Look at which features were selected.
+7. If the result improves, keep the change and continue iterating.
+8. If the result gets worse, revert the change in `feature_engineering.py` and/or `model.py`.
+9. Repeat from step 1.
+
+## Ideas To Explore
+
+- different lag structures for housing prices
+- different regressors: Ridge, Lasso, ElasticNet, SVR, random forests, etc.
+- ensemble methods: RandomForest, GradientBoosting, HistGradientBoosting
+- feature engineering: PolynomialFeatures, interaction terms, etc.
+- hyperparameter tuning within pipeline
+
+
+## What Good Solutions Look Like
+
+- lower test RMSE
+- lower test MSE
+- stable selected features across training windows
+
+## What NOT To Do
+
+- Do not modify `prepare.py`.
+- Do not modify `run.py`.
+- Do not modify `src/data_preprocess.py`.
+- Do not modify `src/utils.py`.
+- Do not change the fixed test split.
+- Do not change function signatures.
