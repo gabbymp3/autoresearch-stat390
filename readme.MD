@@ -1,4 +1,4 @@
-# Housing Feature Selection
+# AutoResearch for Feature Selection in Panel Data - Predicting Housing Prices
 
 This repo tries to answer one question:
 
