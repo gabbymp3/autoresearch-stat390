@@ -43,7 +43,6 @@ The agent is not allowed to change:
 - `extract_selected_features()` must keep the same function signature.
 - Do not use future information when building features.
 - Build features in county-date order.
-- Keep solutions at an undergrad data science level: clear, simple, and explainable.
 - Do not add new files or new dependencies.
 - Do not download external data.
 
