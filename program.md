@@ -1,6 +1,5 @@
 # Program Instructions
 
-## Objective
 
 Optimize for:
 
@@ -40,28 +39,37 @@ The search space lives in:
 - `feature_engineering.py`
 - `model.py`
 
-## Required Interfaces
+All other files should be treated as fixed.
 
-`feature_engineering.py` must expose:
+## What The Agent Is Allowed To Change
 
-```python
-engineer_features(df, target_col="zhvi", group_col="county_fips", date_col="date", config=None)
-```
+- which features are used
+- how features are created
+- which model is used
+- model hyperparameters
 
-It must return:
+## What Good Solutions Look Like
+
+- low out-of-sample MSE
+- stable feature choices across training windows
+- simple models that are easy to explain
+
+## Required Functions
+
+`feature_engineering.py` must return:
 
 ```python
 (engineered_df, feature_cols)
 ```
 
-`model.py` must expose:
+`model.py` must provide:
 
 ```python
-build_model(model_name="ols", random_state=42, **kwargs)
-extract_selected_features(model, feature_names, top_k=10)
+build_model(...)
+extract_selected_features(...)
 ```
 
-## Evaluation Rules
+## Modeling Rules
 
 - Never use future information to build current-period predictors.
 - Preserve county-month ordering before creating lags or growth rates.

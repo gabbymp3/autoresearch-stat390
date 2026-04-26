@@ -1,128 +1,101 @@
-# AutoResearch for Feature Selection in Panel Data
+# Housing Feature Selection
 
-This repository studies a panel-data feature selection problem for county-level housing prices. The core question is:
+This repo tries to answer one question:
 
-Which economic, demographic, and housing supply variables are the most robust and stable predictors of county-level housing prices over time?
+Which variables do the best job predicting county-level housing prices over time?
 
-The project uses an AutoResearch-style loop to search over feature sets, feature engineering choices, and model families while keeping the target, panel structure, dataset, and time-aware evaluation protocol fixed.
+The target is Zillow Home Value Index (`zhvi`).
 
-## Motivation
+## Fixed Test Set
 
-Housing affordability has deteriorated sharply across the United States, but the drivers of those changes vary across counties and over time. Panel data makes it possible to model those dynamics, yet the large number of correlated predictors creates a difficult feature-selection problem. This repo is designed to automate that search in a way that improves both prediction and interpretability.
+Every run uses the exact same test set.
 
-## Success Criteria
+- training data: all rows before `2024-01-31`
+- test data: all rows on or after `2024-01-31`
 
-The project is successful if the pipeline identifies a feature set that:
+This split is fixed in code so results are comparable across runs.
 
-- achieves lower out-of-sample MSE than the baseline model
-- demonstrates stable feature selection across time splits and model types
+## Main Idea
 
-The baseline model to beat is an OLS specification using:
+The workflow is simple:
 
-- lagged housing prices
-- mortgage rate
-- unemployment rate
-- median income
+1. Build a county-by-month panel.
+2. Create features in `feature_engineering.py`.
+3. Build a model in `model.py`.
+4. Score the model on the fixed test set.
 
-## Current Repo Status
+## Files
 
-The repo currently includes the Zillow county ZHVI file plus several Federal Reserve monthly macro series in `data/raw/`. The preprocessing pipeline automatically reshapes those FRB files into a clean monthly macro table and merges them onto the county-month Zillow panel by date.
+Files the agent may edit:
 
-The scaffold still supports an optional county-month covariate table at `data/processed/external_features.csv` for non-Zillow predictors such as unemployment, income, demographics, and housing supply variables. Those county-level features are still needed for the full proposal.
+- `feature_engineering.py`
+- `model.py`
 
-## Repository Layout
-
-```text
-auto-housing-fs/
-├── README.md
-├── program.md
-├── data/
-│   ├── raw/
-│   └── processed/
-├── prepare.py
-├── run.py
-├── feature_engineering.py
-├── model.py
-├── results.csv
-├── src/
-│   ├── data_preprocess.py
-│   └── utils.py
-└── .github/workflows/
-    └── frozen-files-check.yml
-```
-
-## File Roles
-
-Frozen files:
+Files that should stay fixed:
 
 - `prepare.py`
 - `run.py`
 - `src/data_preprocess.py`
 - `src/utils.py`
+- `program.md`
 
-Agent-mutable files:
+## Data
 
-- `feature_engineering.py`
-- `model.py`
+The repo currently uses:
 
-Append-only outputs:
+- Zillow county home value data in `data/raw/`
+- Federal Reserve monthly macro data in `data/raw/FRB_*.csv`
 
-- `results.csv`
-- `performance.png`
+The preprocessing code merges the FRB data onto each county-month row by date.
 
-## Expected Data Contract
+Optional extra county-level features can be added in:
 
-`src/data_preprocess.py` writes `data/processed/panel_dataset.csv` with at least:
+- `data/processed/external_features.csv`
 
-- `county_fips`
-- `date`
-- `zhvi`
-
-If you add `data/processed/external_features.csv`, it should also contain:
+That file should contain:
 
 - `county_fips`
 - `date`
-- any county-month predictors to merge into the panel
+- any extra predictor columns
 
-Dates should be month-end timestamps or parse cleanly into them.
+## Run An Experiment
 
-The preprocessing step also writes:
-
-- `data/processed/frb_macro_features.csv`: monthly national macro features parsed from `data/raw/FRB_*.csv`
-- `data/processed/frb_series_metadata.csv`: descriptions and source metadata for those FRB columns
-
-## Quick Start
-
-1. Install the project dependencies in your preferred environment:
+Install packages:
 
 ```bash
 python3 -m pip install -r requirements.txt
 ```
-2. Place raw source files in `data/raw/`.
-3. Optionally place county-month covariates in `data/processed/external_features.csv`.
-4. Run a starter experiment:
+
+Run a simple model:
 
 ```bash
-python3 run.py --model ols --feature-mode autoregressive --label starter_ols
+python3 run.py --model ols --feature-mode simple --label simple_ols
 ```
 
-5. Try a feature-selection model:
+Try a larger feature set:
 
 ```bash
-python3 run.py --model lasso --feature-mode auto --label lasso_auto
+python3 run.py --model lasso --feature-mode auto --label auto_lasso
 ```
 
-## Notes On Evaluation
+## Feature Modes
 
-- The target is Zillow Home Value Index (`zhvi`).
-- Train/test splits are time-aware.
-- Panel leakage is explicitly disallowed.
-- The pipeline reports out-of-sample MSE, RMSE, MAE, R2, and a simple feature stability score.
+- `baseline`: uses the baseline columns if they exist
+- `simple`: small, easy-to-understand feature set
+- `auto`: simple set plus more lagged numeric predictors
 
-## Risks To Watch
+## Models
 
-- data alignment issues across time and geography
-- missingness in ACS and supply variables
-- leakage from improper validation
-- overfitting in flexible models
-- unstable feature sets across windows or model families
+- `ols`
+- `lasso`
+- `random_forest`
+
+## Output
+
+Each run appends a row to `results.csv` with:
+
+- the model name
+- the feature mode
+- the fixed split date
+- test metrics
+- selected features

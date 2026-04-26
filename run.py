@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from prepare import ExperimentConfig, run_experiment
+from prepare import FIXED_TEST_START_DATE, ExperimentConfig, run_experiment
 from src.utils import RESULTS_FIELDNAMES, append_results_row, serialize_feature_list, utc_timestamp
 
 
@@ -15,12 +15,10 @@ PERFORMANCE_PLOT_PATH = ROOT / "performance.png"
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run a single housing feature-selection experiment.")
-    parser.add_argument("--model", default="ols", choices=["ols", "lasso", "random_forest", "xgboost"])
-    parser.add_argument("--feature-mode", default="autoregressive", choices=["autoregressive", "baseline", "auto"])
-    parser.add_argument("--split-date", default="2022-01-31")
+    parser = argparse.ArgumentParser(description="Run one housing-price experiment with a fixed test set.")
+    parser.add_argument("--model", default="ols", choices=["ols", "lasso", "random_forest"])
+    parser.add_argument("--feature-mode", default="simple", choices=["baseline", "simple", "auto"])
     parser.add_argument("--label", default="experiment")
-    parser.add_argument("--stability-windows", type=int, default=4)
     return parser.parse_args()
 
 
@@ -59,10 +57,7 @@ def update_performance_plot(results_path: Path, output_path: Path) -> None:
 def main() -> None:
     args = parse_args()
 
-    config = ExperimentConfig(
-        split_date=args.split_date,
-        stability_windows=args.stability_windows,
-    )
+    config = ExperimentConfig()
 
     result = run_experiment(
         config=config,
@@ -75,7 +70,7 @@ def main() -> None:
         "label": args.label,
         "model": args.model,
         "feature_mode": args.feature_mode,
-        "split_date": args.split_date,
+        "split_date": config.test_start_date,
         "train_rows": result["train_rows"],
         "test_rows": result["test_rows"],
         "n_features": len(result["feature_cols"]),
@@ -91,6 +86,7 @@ def main() -> None:
     update_performance_plot(RESULTS_PATH, PERFORMANCE_PLOT_PATH)
 
     print("Experiment complete.")
+    print(f"Fixed test start date: {FIXED_TEST_START_DATE}")
     for field_name in RESULTS_FIELDNAMES:
         if field_name in row:
             print(f"{field_name}: {row[field_name]}")

@@ -12,20 +12,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Block edits to frozen files
+      - name: Allow only agent-editable files
         shell: bash
         run: |
           changed_files="$(git diff --name-only origin/${{ github.base_ref }}...HEAD)"
-          frozen_files=(
-            "prepare.py"
-            "run.py"
-            "src/data_preprocess.py"
-            "src/utils.py"
+          allowed_files=(
+            "feature_engineering.py"
+            "model.py"
+            ".github/workflows/frozen-files-check.yml"
           )
 
-          for file in "${frozen_files[@]}"; do
-            if grep -Fxq "$file" <<< "$changed_files"; then
-              echo "Frozen file changed: $file"
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+
+            if ! printf '%s\n' "${allowed_files[@]}" | grep -Fxq "$file"; then
+              echo "Only feature_engineering.py and model.py may be changed."
+              echo "Unexpected file: $file"
               exit 1
             fi
-          done
+          done <<< "$changed_files"

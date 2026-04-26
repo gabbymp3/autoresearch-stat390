@@ -15,12 +15,13 @@ from src.utils import pairwise_jaccard
 
 
 ROOT = Path(__file__).resolve().parent
+FIXED_TEST_START_DATE = "2024-01-31"
 
 
 @dataclass(frozen=True)
 class ExperimentConfig:
     panel_path: Path = PANEL_OUTPUT_PATH
-    split_date: str = "2022-01-31"
+    test_start_date: str = FIXED_TEST_START_DATE
     target_col: str = "zhvi"
     group_col: str = "county_fips"
     date_col: str = "date"
@@ -42,6 +43,9 @@ def prepare_train_test_data(
     feature_config: dict[str, Any] | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
     frame = load_panel_data(config)
+    feature_config = dict(feature_config or {})
+    feature_config["test_start_date"] = config.test_start_date
+
     engineered, feature_cols = engineer_features(
         frame,
         target_col=config.target_col,
@@ -51,13 +55,16 @@ def prepare_train_test_data(
     )
 
     engineered = engineered.sort_values([config.group_col, config.date_col]).reset_index(drop=True)
-    split_timestamp = pd.Timestamp(config.split_date)
+    split_timestamp = pd.Timestamp(config.test_start_date)
 
     train = engineered.loc[engineered[config.date_col] < split_timestamp].copy()
     test = engineered.loc[engineered[config.date_col] >= split_timestamp].copy()
 
     if train.empty or test.empty:
-        raise ValueError("The requested split produced an empty train or test set.")
+        raise ValueError(
+            "The fixed test split produced an empty train or test set. "
+            f"Test starts on {config.test_start_date}."
+        )
 
     keep_columns = [config.target_col] + feature_cols
     train = train.dropna(subset=keep_columns)
@@ -91,7 +98,7 @@ def estimate_feature_stability(
     model_name: str,
     model_kwargs: dict[str, Any],
 ) -> float:
-    train_frame = frame.loc[frame[config.date_col] < pd.Timestamp(config.split_date)].copy()
+    train_frame = frame.loc[frame[config.date_col] < pd.Timestamp(config.test_start_date)].copy()
     unique_dates = sorted(train_frame[config.date_col].dropna().unique())
 
     if len(unique_dates) < max(2, config.stability_windows):
