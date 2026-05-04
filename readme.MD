@@ -69,13 +69,13 @@ python3 -m pip install -r requirements.txt
 Run a simple model:
 
 ```bash
-python3 run.py --model ols --feature-mode simple --label simple_ols
+python3 run.py --model ols --feature-mode simple --label simple_ols --session-name my_session
 ```
 
 Try a larger feature set:
 
 ```bash
-python3 run.py --model lasso --feature-mode auto --label auto_lasso
+python3 run.py --model lasso --feature-mode auto --label auto_lasso --session-name my_session
 ```
 
 ## Feature Modes
@@ -92,10 +92,16 @@ python3 run.py --model lasso --feature-mode auto --label auto_lasso
 
 ## Output
 
-Each run appends a row to `results.csv` with:
+Each run appends a row to `artifacts/<session_name>/results.csv` with:
 
 - the model name
 - the feature mode
 - the fixed split date
+- the runtime in seconds
 - test metrics
 - selected features
+
+Each session also generates:
+
+- `artifacts/<session_name>/autoresearch_summary.md`
+- `artifacts/<session_name>/performance.png`

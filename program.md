@@ -64,20 +64,28 @@ If those county-level baseline columns are missing, do not claim a true baseline
 
 ## Workflow
 
-1. Read `feature_engineering.py` and `model.py`.
-2. Choose one simple change to test.
-3. Edit only `feature_engineering.py` and/or `model.py`.
-4. Run:
+1. At the start of every new autoresearch prompt, create a fresh session name (for example `week4-20260503-2100`) and reuse that same value for every experiment in that loop.
+2. Read `feature_engineering.py` and `model.py`.
+3. Choose one simple change to test.
+4. Edit only `feature_engineering.py` and/or `model.py`.
+5. Run:
 
 ```bash
-python3 run.py --model <model_name> --feature-mode <feature_mode> --label "description_of_change"
+python3 run.py --model <model_name> --feature-mode <feature_mode> --label "description_of_change" --session-name <session_name>
 ```
 
-5. Check the test metrics in the output and in `results.csv`.
-6. Look at which features were selected.
-7. If the result improves, keep the change and continue iterating.
-8. If the result gets worse, revert the change in `feature_engineering.py` and/or `model.py`.
-9. Repeat from step 1.
+6. Check the test metrics, runtime, and selected features in the command output and in `artifacts/<session_name>/results.csv`.
+7. Review the auto-generated session summary in `artifacts/<session_name>/autoresearch_summary.md` and the plot in `artifacts/<session_name>/performance.png`.
+8. If the result improves, keep the change and continue iterating within the same session.
+9. If the result gets worse, revert the change in `feature_engineering.py` and/or `model.py`.
+10. Repeat from step 3 until the loop is complete.
+
+## Session Output Rules
+
+- Do not append new autoresearch prompts to a single global `results.csv`.
+- Every new autoresearch prompt must use a new session name and therefore a new results file and summary under `artifacts/<session_name>/`.
+- All experiments within the same prompt should share one session name so their rows stay together in one session-scoped results file.
+- Every experiment must log runtime in seconds alongside the usual metrics.
 
 ## Ideas To Explore
 
