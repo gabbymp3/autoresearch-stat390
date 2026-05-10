@@ -37,6 +37,11 @@ CORE_MACRO_COLUMNS = [
 MIN_TRAIN_COVERAGE = 0.95
 MIN_TEST_COVERAGE = 0.95
 
+# Week 5 controlled ablation: number of leading observations per county to exclude from training.
+# Set to 24 to match the row count of lag_24/2yr_growth runs and enable fair comparison.
+# Set to 0 to disable (uncontrolled, all available rows used).
+CONTROLLED_WARMUP_PERIODS = 24
+
 
 def keep_columns_that_exist(frame: pd.DataFrame, columns: list[str]) -> list[str]:
     return [column for column in columns if column in frame.columns]
@@ -131,19 +136,18 @@ def engineer_features(
         if has_enough_coverage(frame, lag_name, date_col, test_start_date):
             lagged_covariates.append(lag_name)
 
+    # Week 5 controlled ablation: best feature set = lag_6 + 2yr_growth (Run 06 winner).
+    # Run 09-10: model exploration on this controlled feature set.
     simple_features = [
         "zhvi_lag_1",
         "zhvi_lag_2",
         "zhvi_lag_3",
         "zhvi_lag_6",
-        "zhvi_lag_12",
-        "zhvi_lag_24",
+        "zhvi_2yr_growth",
         "zhvi_mom_growth",
         "zhvi_mom_accel",
         "zhvi_3m_growth",
         "zhvi_6m_growth",
-        "zhvi_yoy_growth",
-        "zhvi_2yr_growth",
         "zhvi_log_lag_1",
     ]
     simple_features += keep_columns_that_exist(
@@ -169,5 +173,15 @@ def engineer_features(
         for column in dict.fromkeys(feature_cols)
         if column in frame.columns and column not in {target_col, "zhvi_log"}
     ]
+
+    # Controlled warmup: exclude all rows where zhvi_lag_24 is NaN.
+    # This ensures every controlled run uses the exact same training set (same rows dropped)
+    # regardless of which long-horizon features are active, resolving the Week 4 row-count confound.
+    # Set CONTROLLED_WARMUP_PERIODS=0 to disable (uncontrolled mode).
+    warmup_periods = config.get("warmup_periods", CONTROLLED_WARMUP_PERIODS)
+    if warmup_periods > 0:
+        warmup_mask = frame["zhvi_lag_24"].isna()
+        for col in feature_cols:
+            frame.loc[warmup_mask, col] = np.nan
 
     return frame, feature_cols
