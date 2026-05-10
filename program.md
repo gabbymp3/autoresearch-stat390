@@ -43,7 +43,8 @@ The agent is not allowed to change:
 - `extract_selected_features()` must keep the same function signature.
 - Do not use future information when building features.
 - Build features in county-date order.
-- Do not add new files or new dependencies.
+- Do not add new dependencies.
+- You may create new files only under `artifacts/<session_name>/` for session-specific logs, summaries, plots, and deliverables.
 - Do not download external data.
 
 ## Current Feature / Model Setup
@@ -86,6 +87,7 @@ python3 run.py --model <model_name> --feature-mode <feature_mode> --label "descr
 - Every new autoresearch prompt must use a new session name and therefore a new results file and summary under `artifacts/<session_name>/`.
 - All experiments within the same prompt should share one session name so their rows stay together in one session-scoped results file.
 - Every experiment must log runtime in seconds alongside the usual metrics.
+- Any additional files created by the agent must stay inside `artifacts/<session_name>/`.
 
 ## Ideas To Explore
 
@@ -108,5 +110,6 @@ python3 run.py --model <model_name> --feature-mode <feature_mode> --label "descr
 - Do not modify `run.py`.
 - Do not modify `src/data_preprocess.py`.
 - Do not modify `src/utils.py`.
+- Do not create new files outside `artifacts/<session_name>/`.
 - Do not change the fixed test split.
 - Do not change function signatures.
