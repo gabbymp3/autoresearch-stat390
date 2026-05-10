@@ -18,6 +18,7 @@ RESULTS_FIELDNAMES = [
     "train_rows",
     "test_rows",
     "n_features",
+    "runtime_seconds",
     "mse",
     "rmse",
     "mae",
