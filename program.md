@@ -1,115 +1,147 @@
-# AutoResearch Agent Instructions
+# AutoResearch Agent Instructions — Week 6 Scope Lock
 
-## Objective
+## Locked Objective
 
-Minimize out-of-sample RMSE and MSE on the county-level housing price task.
+Do not reopen the project search space.
 
-The target is always `zhvi`.
+The goal for the final two weeks is to defend one clear, evidence-backed claim:
 
-The goal is to find a feature set and model that work well on the fixed holdout test set while staying relatively simple and interpretable.
+> For county-level Zillow Home Value Index (`zhvi`) forecasting on the fixed holdout beginning `2024-01-31`, a simple OLS model with short-horizon autoregressive features, momentum features, and one long-horizon growth feature (`zhvi_2yr_growth`) is the best credible direction in this repo once training-row comparability is controlled.
 
-## Project-Specific Context
+This repo is optimizing for:
 
-This project predicts county-level Zillow Home Value Index (`zhvi`) over time.
+- reproducibility
+- clarity
+- clean evidence
+- a final presentation that matches the actual results
 
-The agent is allowed to search over:
+## Locked Story
 
-- feature choices
-- feature engineering choices
-- model choice
-- model hyperparameters
+The project now shows that:
 
-The agent is not allowed to change:
+1. OLS is the correct model family for this task among the tested options.
+2. The Week 4 long-horizon gains were partly confounded by training-row loss.
+3. After controlling that confound, `zhvi_2yr_growth` is the only long-horizon feature with a clear, genuine improvement over the controlled baseline.
+4. The final contribution is modest but defensible: a controlled feature ablation showing that `zhvi_2yr_growth` provides a small real gain on top of the short-horizon OLS baseline.
+5. The substantive interpretation is that recent county price paths are acting as a proxy for missing local fundamentals, while national macro variables mainly provide background regime information.
 
-- the dataset
-- the target variable
-- the county panel structure
-- the train/test split
+## Locked Evidence
 
-## Rules
+Use these results as the default reference points:
 
-- You may ONLY modify `feature_engineering.py` and `model.py`.
-- `prepare.py`, `run.py`, `src/data_preprocess.py`, and `src/utils.py` are FROZEN.
-- The test set is fixed for every run.
-- The test set starts on `2024-01-31`.
-- The agent cannot choose or change the time split.
-- `engineer_features()` must keep the same function signature and return:
+- Controlled baseline: Run 03 `lag6_controlled_lag24mask`
+  - OLS, `simple`
+  - 533,909 train rows
+  - RMSE `391.80`
+- Primary best credible result: Run 06 `controlled_add_2yr`
+  - OLS, `simple`
+  - 533,909 train rows
+  - RMSE `391.25`
+  - Genuine gain vs controlled baseline: `-0.55 RMSE`
+- Secondary result, not the primary story: Run 07 `controlled_lag24_2yr`
+  - OLS, `simple`
+  - 533,909 train rows
+  - RMSE `391.20`
+  - Only `-0.05 RMSE` better than Run 06, with added complexity and redundancy
 
-```python
-(engineered_df, feature_cols)
-```
+The primary comparison to present is Run 06 vs Run 03, because it isolates one added feature on the exact same training rows.
 
-- `build_model()` must keep the same function signature and return an sklearn-compatible estimator.
-- `extract_selected_features()` must keep the same function signature.
-- Do not use future information when building features.
-- Build features in county-date order.
+## Interpretation Guardrails
+
+Use the forecasting result and the interpretation result together:
+
+- Forecasting result: recent county price levels and momentum dominate near-term prediction.
+- Interpretation result: those lagged price features are likely absorbing omitted local information such as labor-market conditions, supply constraints, migration pressure, and local demand.
+- Macro result: national rate and credit variables help at the margin, but without county-level exposure variables they do not explain much cross-county variation by themselves.
+
+Do not overclaim causality.
+This project supports a strong forecasting claim and a moderate substantive interpretation, not a structural causal model of housing markets.
+
+## Scope Rules
+
+The agent may still inspect the whole repo, but must not reopen broad experimentation.
+
+Allowed:
+
+- reproduce the locked OLS results
+- improve documentation and presentation artifacts
+- tighten wording around the controlled-comparison claim
+- generate tables, plots, and summaries from existing evidence
+- make small bug fixes only if they are required to reproduce the locked result
+
+Not allowed:
+
+- introduce new model families as a new search direction
+- change the dataset, target, county panel structure, or time split
+- change evaluation after seeing results
+- claim a new "best" result from an uncontrolled comparison
+- widen the feature search space beyond direct confirmation of the locked claim
+
+## Code Constraints
+
+- `prepare.py`, `run.py`, `src/data_preprocess.py`, and `src/utils.py` remain frozen unless a reproducibility blocker absolutely requires instructor-approved intervention.
+- Preserve function signatures in `feature_engineering.py` and `model.py`.
 - Do not add new dependencies.
-- You may create new files only under `artifacts/<session_name>/` for session-specific logs, summaries, plots, and deliverables.
 - Do not download external data.
+- Keep any new deliverables under `artifacts/<session_name>/`.
 
-## Current Feature / Model Setup
+## Locked Configuration
 
-The current experiment setup supports:
+The current locked configuration is:
 
-- feature modes: `baseline`, `simple`, `auto`
-- model choices: `ols`, `lasso`, `random_forest`
+- Model: `ols`
+- Feature mode: `simple`
+- Controlled warmup: `24` periods
+- Core short-horizon features:
+  - `zhvi_lag_1`
+  - `zhvi_lag_2`
+  - `zhvi_lag_3`
+  - `zhvi_lag_6`
+- Momentum features:
+  - `zhvi_mom_growth`
+  - `zhvi_mom_accel`
+  - `zhvi_3m_growth`
+  - `zhvi_6m_growth`
+- Long-horizon feature kept in scope:
+  - `zhvi_2yr_growth`
+- Supporting level/macro features:
+  - `zhvi_log_lag_1`
+  - `fed_funds_rate_lag_1`
+  - `prime_rate_lag_1`
+  - `treasury_10y_lag_1`
+  - `consumer_credit_total_sa_lag_1`
+  - `industrial_production_total_sa_lag_1`
 
-The intended baseline is based on:
+## What Has Been Dropped
 
-- `zhvi_lag_1`
-- `mortgage_rate_lag_1`
-- `unemployment_rate_lag_1`
-- `median_income_lag_1`
+These directions are officially out of scope unless the instructor explicitly asks to reopen them:
 
-If those county-level baseline columns are missing, do not claim a true baseline improvement.
+- uncontrolled long-horizon comparisons as evidence
+- `zhvi_lag_12` as a claimed improvement
+- `zhvi_yoy_growth` as a claimed improvement
+- Lasso with default alpha as a viable alternative
+- tree/boosting models as a viable alternative
+- open-ended model search for novelty
 
-## Workflow
+## Week 6 Workflow
 
-1. At the start of every new autoresearch prompt, create a fresh session name (for example `week4-20260503-2100`) and reuse that same value for every experiment in that loop.
-2. Read `feature_engineering.py` and `model.py`.
-3. Choose one simple change to test.
-4. Edit only `feature_engineering.py` and/or `model.py`.
-5. Run:
+1. Reproduce the locked baseline and locked best result if the environment permits.
+2. Use `artifacts/week5-20260510-1/` as the canonical evidence source unless newer fully controlled reproductions match it.
+3. Build final tables, figures, and narrative around the controlled comparison.
+4. Keep the final presentation focused on:
+   - the row-count confound
+   - the controlled ablation fix
+   - the modest but real gain from `zhvi_2yr_growth`
+   - why OLS remained the strongest tested model
+   - why lagged prices likely proxy for missing local fundamentals
+   - why national macro variables act more like background conditions than full county-specific explanations here
 
-```bash
-python3 run.py --model <model_name> --feature-mode <feature_mode> --label "description_of_change" --session-name <session_name>
-```
+## Success Criteria
 
-6. Check the test metrics, runtime, and selected features in the command output and in `artifacts/<session_name>/results.csv`.
-7. Review the auto-generated session summary in `artifacts/<session_name>/autoresearch_summary.md` and the plot in `artifacts/<session_name>/performance.png`.
-8. If the result improves, keep the change and continue iterating within the same session.
-9. If the result gets worse, revert the change in `feature_engineering.py` and/or `model.py`.
-10. Repeat from step 3 until the loop is complete.
+A good final outcome now looks like:
 
-## Session Output Rules
-
-- Do not append new autoresearch prompts to a single global `results.csv`.
-- Every new autoresearch prompt must use a new session name and therefore a new results file and summary under `artifacts/<session_name>/`.
-- All experiments within the same prompt should share one session name so their rows stay together in one session-scoped results file.
-- Every experiment must log runtime in seconds alongside the usual metrics.
-- Any additional files created by the agent must stay inside `artifacts/<session_name>/`.
-
-## Ideas To Explore
-
-- different lag structures for housing prices
-- different regressors: Ridge, Lasso, ElasticNet, SVR, random forests, etc.
-- ensemble methods: RandomForest, GradientBoosting, HistGradientBoosting
-- feature engineering: PolynomialFeatures, interaction terms, etc.
-- hyperparameter tuning within pipeline
-
-
-## What Good Solutions Look Like
-
-- lower test RMSE
-- lower test MSE
-- stable selected features across training windows
-
-## What NOT To Do
-
-- Do not modify `prepare.py`.
-- Do not modify `run.py`.
-- Do not modify `src/data_preprocess.py`.
-- Do not modify `src/utils.py`.
-- Do not create new files outside `artifacts/<session_name>/`.
-- Do not change the fixed test split.
-- Do not change function signatures.
+- one clean project statement
+- one credible comparison table
+- one explicit list of dropped directions
+- one reproducible final workflow
+- one realistic finish plan tied directly to the locked story
