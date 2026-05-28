@@ -6,23 +6,30 @@ Which variables do the best job predicting county-level housing prices over time
 
 The target is Zillow Home Value Index (`zhvi`).
 
-## Fixed Test Set
+**Data.** County-by-month Zillow `zhvi` panel merged with monthly Federal Reserve macro series
+(fed funds rate, prime rate, 10-year Treasury, consumer credit, industrial production; all lagged).
 
-Every run uses the exact same test set.
+Optional extra county-level features can be added in:
 
-- training data: all rows before `2024-01-31`
-- test data: all rows on or after `2024-01-31`
+- `data/processed/external_features.csv`
 
-This split is fixed in code so results are comparable across runs.
+That file should contain:
 
-## Main Idea
+- `county_fips`
+- `date`
+- any extra predictor columns
 
-The workflow is simple:
+**Method.** An AutoResearch loop: each iteration changes one element of the feature set,
+runs a frozen evaluation pipeline, logs metrics, and records a keep/discard/rollback decision.
 
-1. Build a county-by-month panel.
-2. Create features in `feature_engineering.py`.
-3. Build a model in `model.py`.
-4. Score the model on the fixed test set.
+**Metric.** Out-of-sample test RMSE on the fixed `2024-01-31` split (MAE, R², and a feature-
+stability score tracked alongside).
+
+**Final locked configuration.** OLS, `simple` feature mode, controlled 24-period warmup.
+
+**Current best (locked).** RMSE **391.25** — controlled OLS baseline (391.80) **+ `zhvi_2yr_growth`**,
+a genuine **−0.55 RMSE** improvement on identical 533,909 training rows. OLS beats Lasso (807) and
+HistGradientBoosting (50,328) decisively.
 
 ## Files
 
@@ -39,24 +46,7 @@ Files that should stay fixed:
 - `src/utils.py`
 - `program.md`
 
-## Data
 
-The repo currently uses:
-
-- Zillow county home value data in `data/raw/`
-- Federal Reserve monthly macro data in `data/raw/FRB_*.csv`
-
-The preprocessing code merges the FRB data onto each county-month row by date.
-
-Optional extra county-level features can be added in:
-
-- `data/processed/external_features.csv`
-
-That file should contain:
-
-- `county_fips`
-- `date`
-- any extra predictor columns
 
 ## Run An Experiment
 
@@ -78,18 +68,6 @@ Try a larger feature set:
 python3 run.py --model lasso --feature-mode auto --label auto_lasso --session-name my_session
 ```
 
-## Feature Modes
-
-- `baseline`: uses the baseline columns if they exist
-- `simple`: small, easy-to-understand feature set
-- `auto`: simple set plus more lagged numeric predictors
-
-## Models
-
-- `ols`
-- `lasso`
-- `random_forest`
-
 ## Output
 
 Each run appends a row to `artifacts/<session_name>/results.csv` with:
@@ -105,3 +83,40 @@ Each session also generates:
 
 - `artifacts/<session_name>/autoresearch_summary.md`
 - `artifacts/<session_name>/performance.png`
+
+
+---
+
+## Repository layout
+
+```
+.
+├── README.md                       # this file
+├── program.md                      # LOCKED agent instructions, config, dropped directions
+├── prepare.py                      # FROZEN
+├── run.py                          # FROZEN — experiment entry point
+├── feature_engineering.py          # agent-editable
+├── model.py                        # agent-editable
+├── src/
+│   ├── data_preprocess.py          # FROZEN — builds the county-month panel
+│   └── utils.py                    # FROZEN
+├── data/
+│   ├── raw/                        # Zillow zhvi CSV + FRB_*.csv macro series
+│   └── processed/                  # panel_dataset.csv, external_features.csv (optional)
+├── artifacts/
+│   ├── week4-momentum/             # controlled ablation + error taxonomy (confound found)
+│   ├── week5-20260510-1/           # CANONICAL controlled evidence (locked baseline + best)
+│   └── week6-20260517-lock/        # scope lock: statement, comparison table, finish plan
+└── deliverables/                   # final report, slides, results table, reflection memo
+```
+
+**Editable vs frozen.** The agent may edit `feature_engineering.py` and `model.py` only.
+`prepare.py`, `run.py`, `src/data_preprocess.py`, `src/utils.py`, and `program.md` are frozen.
+
+## Feature modes
+- `baseline` — baseline columns if present
+- `simple` — small, interpretable feature set (the locked mode)
+- `auto` — simple set plus more lagged predictors (not used in the locked story)
+
+## Models
+- `ols` (locked best) · `lasso` · `random_forest`
