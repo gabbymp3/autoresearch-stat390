@@ -104,19 +104,13 @@ Each session also generates:
 │   ├── raw/                        # Zillow zhvi CSV + FRB_*.csv macro series
 │   └── processed/                  # panel_dataset.csv, external_features.csv (optional)
 ├── artifacts/
+│   ├── week2+3/                    # first baseline OLS + autoresearch loop
 │   ├── week4-momentum/             # controlled ablation + error taxonomy (confound found)
 │   ├── week5-20260510-1/           # CANONICAL controlled evidence (locked baseline + best)
 │   └── week6-20260517-lock/        # scope lock: statement, comparison table, finish plan
-└── deliverables/                   # final report, slides, results table, reflection memo
 ```
 
 **Editable vs frozen.** The agent may edit `feature_engineering.py` and `model.py` only.
 `prepare.py`, `run.py`, `src/data_preprocess.py`, `src/utils.py`, and `program.md` are frozen.
 
-## Feature modes
-- `baseline` — baseline columns if present
-- `simple` — small, interpretable feature set (the locked mode)
-- `auto` — simple set plus more lagged predictors (not used in the locked story)
 
-## Models
-- `ols` (locked best) · `lasso` · `random_forest`
