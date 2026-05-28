@@ -1,3 +1,14 @@
+"""
+Build the county-month panel used by every autoresearch experiment.
+
+Loads the Zillow ZHVI county panel (wide format), reshapes it to long form,
+loads and harmonizes Federal Reserve macroeconomic series, optionally merges a
+processed external-features file, and writes the combined panel to disk.
+
+The output of :func:`build_panel_dataset` is the single input consumed by
+``prepare.load_panel_data`` and is cached at :data:`PANEL_OUTPUT_PATH`.
+"""
+
 from __future__ import annotations
 
 import re
@@ -8,12 +19,16 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 RAW_DATA_DIR = ROOT / "data" / "raw"
+# Zillow Home Value Index, county-level, smoothed/seasonally-adjusted, monthly.
+# Filename comes verbatim from Zillow's published research download.
 RAW_ZHVI_PATH = ROOT / "data" / "raw" / "County_zhvi_uc_sfrcondo_tier_0.33_0.67_sm_sa_month.csv"
 EXTERNAL_FEATURES_PATH = ROOT / "data" / "processed" / "external_features.csv"
 FRB_MACRO_OUTPUT_PATH = ROOT / "data" / "processed" / "frb_macro_features.csv"
 FRB_METADATA_OUTPUT_PATH = ROOT / "data" / "processed" / "frb_series_metadata.csv"
 PANEL_OUTPUT_PATH = ROOT / "data" / "processed" / "panel_dataset.csv"
 
+# Columns from the raw Zillow file that identify a region rather than a value.
+# All non-ID columns are treated as monthly observation dates during melt.
 ID_COLUMNS = [
     "RegionID",
     "SizeRank",
@@ -26,6 +41,9 @@ ID_COLUMNS = [
     "MunicipalCodeFIPS",
 ]
 
+# Human-readable aliases for the Federal Reserve series codes that the rest of
+# the project actually uses as features. Keys are (source_file, series_code);
+# any series not listed here gets a programmatically sanitized fallback name.
 FRB_SERIES_NAME_OVERRIDES = {
     ("FRB_G17.csv", "IP.B50001.S"): "industrial_production_total_sa",
     ("FRB_G17.csv", "IP.GMF.S"): "industrial_production_manufacturing_sa",
@@ -46,17 +64,37 @@ FRB_SERIES_NAME_OVERRIDES = {
 
 
 def normalize_month_end(values: pd.Series) -> pd.Series:
+    """
+    Snap any parseable date-like values to a month-end timestamp.
+
+    All sources in this project are monthly. Snapping to month-end gives every
+    series a single canonical timestamp per month so merges on ``date`` align
+    cleanly regardless of whether the source recorded the first, mid, or last
+    day of the month.
+    """
     timestamps = pd.to_datetime(values, errors="coerce")
     return timestamps.dt.to_period("M").dt.to_timestamp("M")
 
 
 def sanitize_column_name(value: str) -> str:
+    """
+    Convert an arbitrary label into a safe, lowercase snake_case identifier.
+    """
     cleaned = re.sub(r"[^0-9a-zA-Z]+", "_", str(value).strip().lower())
     cleaned = re.sub(r"_+", "_", cleaned).strip("_")
     return cleaned or "unnamed_series"
 
 
 def load_frb_file(path: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Parse one Federal Reserve CSV into (values, metadata) frames.
+
+    FRB downloads use a banner of description rows before the data table:
+    rows 0-4 carry description/unit/multiplier/currency/unique-id, and the
+    actual column headers (including ``Time Period``) live on row 5. The first
+    read pulls those metadata rows, and the second skips past them to load the
+    numeric panel.
+    """
     metadata_rows = pd.read_csv(path, header=None, nrows=6, dtype="string")
     frame = pd.read_csv(path, skiprows=5)
 
@@ -100,6 +138,14 @@ def load_frb_macro_features(
     output_path: Path = FRB_MACRO_OUTPUT_PATH,
     metadata_output_path: Path = FRB_METADATA_OUTPUT_PATH,
 ) -> pd.DataFrame | None:
+    """
+    Load every ``FRB_*.csv`` in ``raw_dir`` and merge them on ``date``.
+
+    Returns ``None`` (and writes nothing) when no FRB files are present, so
+    the panel build still succeeds in environments that only ship ZHVI data.
+    Also writes the merged macro frame and a consolidated series-metadata
+    CSV for later inspection.
+    """
     frb_paths = sorted(raw_dir.glob("FRB_*.csv"))
     if not frb_paths:
         return None
@@ -124,14 +170,23 @@ def load_frb_macro_features(
 
 
 def load_zhvi_panel(path: Path = RAW_ZHVI_PATH) -> pd.DataFrame:
+    """
+    Read the wide Zillow ZHVI file and return a long county-month panel.
+
+    The raw file has one row per region and one column per month; this melts it
+    to (county_fips, date, zhvi) form, builds the 5-digit FIPS code, restricts
+    to county-level regions, and sorts for stable downstream merges.
+    """
     frame = pd.read_csv(
         path,
         dtype={
+            # FIPS codes carry leading zeros (e.g. 01001 for Autauga County, AL);
             "StateCodeFIPS": "string",
             "MunicipalCodeFIPS": "string",
         },
     )
 
+    # Every non-ID column is a date header (month string) to be melted.
     date_columns = [column for column in frame.columns if column not in ID_COLUMNS]
 
     panel = frame.melt(
@@ -155,6 +210,8 @@ def load_zhvi_panel(path: Path = RAW_ZHVI_PATH) -> pd.DataFrame:
         }
     )
 
+    # 5-digit county FIPS = 2-digit state + 3-digit county code, both zero-padded.
+    # This is the canonical join key used everywhere else in the project.
     panel["county_fips"] = (
         panel["state_fips"].fillna("").str.zfill(2)
         + panel["county_code"].fillna("").str.zfill(3)
@@ -162,6 +219,8 @@ def load_zhvi_panel(path: Path = RAW_ZHVI_PATH) -> pd.DataFrame:
     panel["date"] = normalize_month_end(panel["date"])
     panel["zhvi"] = pd.to_numeric(panel["zhvi"], errors="coerce")
 
+    # Zillow ships a few non-county region types in the same file; restrict so
+    # the panel is purely county-level (matches the project's target unit).
     panel = panel.loc[panel["region_type"].str.lower() == "county"].copy()
     panel = panel.sort_values(["county_fips", "date"]).reset_index(drop=True)
 
@@ -169,6 +228,12 @@ def load_zhvi_panel(path: Path = RAW_ZHVI_PATH) -> pd.DataFrame:
 
 
 def load_external_features(path: Path = EXTERNAL_FEATURES_PATH) -> pd.DataFrame | None:
+    """
+    Load the optional processed external-features file if it exists.
+
+    Returns ``None`` when the file is absent, which lets the panel build run
+    in repos that have not produced this artifact yet.
+    """
     if not path.exists():
         return None
 
@@ -183,6 +248,17 @@ def build_panel_dataset(
     external_features_path: Path = EXTERNAL_FEATURES_PATH,
     output_path: Path = PANEL_OUTPUT_PATH,
 ) -> pd.DataFrame:
+    """
+    Assemble and cache the merged county-month panel used by experiments.
+
+    Merge plan:
+      * ``macro_features`` are national monthly series, so ``many_to_one`` on
+        ``date`` (one macro row maps to many county rows for that month).
+      * ``external_features`` are already at (county, month) granularity, so
+        ``one_to_one`` on the composite key catches accidental duplicates.
+    Both merges are left joins so missing right-side coverage drops to NaN
+    rather than truncating the county panel.
+    """
     panel = load_zhvi_panel(raw_zhvi_path)
     macro_features = load_frb_macro_features(raw_dir=raw_zhvi_path.parent)
     external_features = load_external_features(external_features_path)

@@ -1,3 +1,12 @@
+"""
+Command-line entry point for a single autoresearch experiment.
+
+Parses CLI flags, runs one experiment via ``prepare.run_experiment``, appends a
+row to the session's ``results.csv``, refreshes the markdown summary, and
+re-renders the performance plot. Multiple invocations sharing ``--session-name``
+accumulate into the same artifacts folder.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -22,6 +31,7 @@ PERFORMANCE_FILENAME = "performance.png"
 
 
 def parse_args() -> argparse.Namespace:
+    """Define and parse the CLI flags for one experiment invocation."""
     parser = argparse.ArgumentParser(description="Run one housing-price experiment with a fixed test set.")
     parser.add_argument("--model", default="ols", choices=["ols", "lasso", "random_forest"])
     parser.add_argument("--feature-mode", default="simple", choices=["baseline", "simple", "auto"])
@@ -35,6 +45,9 @@ def parse_args() -> argparse.Namespace:
 
 
 def make_session_name(session_name: str | None) -> str:
+    """
+    Sanitize a user-supplied session name or fall back to a timestamp.
+    """
     if session_name:
         cleaned = re.sub(r"[^A-Za-z0-9._-]+", "-", session_name.strip()).strip("-")
         if cleaned:
@@ -44,6 +57,9 @@ def make_session_name(session_name: str | None) -> str:
 
 
 def resolve_session_paths(session_name: str | None) -> tuple[str, Path, Path, Path]:
+    """
+    Compute the (name, results, summary, plot) paths for a session.
+    """
     resolved_session_name = make_session_name(session_name)
     session_dir = ARTIFACTS_ROOT / resolved_session_name
     return (
@@ -55,6 +71,12 @@ def resolve_session_paths(session_name: str | None) -> tuple[str, Path, Path, Pa
 
 
 def update_performance_plot(results_path: Path, output_path: Path) -> None:
+    """
+    Render a two-panel MSE / stability plot for all runs in this session.
+
+    Silently no-ops if matplotlib is unavailable or there are no logged runs
+    yet, so the experiment loop never fails purely on plotting issues.
+    """
     output_path.parent.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("MPLBACKEND", "Agg")
     os.environ.setdefault("MPLCONFIGDIR", str(output_path.parent / ".matplotlib"))
@@ -71,6 +93,8 @@ def update_performance_plot(results_path: Path, output_path: Path) -> None:
     if results.empty:
         return
 
+    # Use a 1-based run index on the x-axis to match how runs are described in
+    # the markdown summary and in user-facing notes (e.g. "Run 06").
     ordered = results.copy()
     ordered["run_number"] = range(1, len(ordered) + 1)
 
@@ -93,6 +117,9 @@ def update_performance_plot(results_path: Path, output_path: Path) -> None:
 
 
 def format_metric(value: object, decimals: int = 2) -> str:
+    """
+    Format a metric for the markdown table, tolerating NaN and non-numerics.
+    """
     if pd.isna(value):
         return "nan"
     if isinstance(value, (int, float)):
@@ -101,6 +128,13 @@ def format_metric(value: object, decimals: int = 2) -> str:
 
 
 def summarize_selected_features(raw_value: object) -> str:
+    """
+    Decode the JSON-serialized feature list back into a readable string.
+
+    The selected-features column is written as a JSON array by
+    ``serialize_feature_list``; this turns it back into a comma-separated list
+    for display, but falls through to the raw string if parsing fails.
+    """
     if pd.isna(raw_value):
         return ""
 
@@ -113,6 +147,13 @@ def summarize_selected_features(raw_value: object) -> str:
 
 
 def update_session_summary(results_path: Path, summary_path: Path, session_name: str) -> None:
+    """
+    Rewrite ``autoresearch_summary.md`` from the current ``results.csv``.
+
+    Builds a per-run table and highlights the run with the lowest RMSE as the
+    session's best result. The file is regenerated from scratch on every call
+    so it always reflects every logged run.
+    """
     if not results_path.exists():
         return
 
@@ -122,9 +163,11 @@ def update_session_summary(results_path: Path, summary_path: Path, session_name:
 
     ordered = results.copy()
     ordered["run_number"] = range(1, len(ordered) + 1)
+    # Backfill runtime for older result files written before this column existed.
     if "runtime_seconds" not in ordered.columns:
         ordered["runtime_seconds"] = pd.NA
 
+    # "Best" = lowest out-of-sample RMSE on the fixed holdout split.
     best_index = ordered["rmse"].astype(float).idxmin()
     best_row = ordered.loc[best_index]
 
@@ -187,11 +230,15 @@ def update_session_summary(results_path: Path, summary_path: Path, session_name:
 
 
 def main() -> None:
+    """
+    Run one experiment end-to-end and update the session artifacts.
+    """
     args = parse_args()
     session_name, results_path, summary_path, performance_plot_path = resolve_session_paths(args.session_name)
 
     config = ExperimentConfig()
 
+    # Wall-clock runtime is logged alongside metrics.
     started = time.perf_counter()
     result = run_experiment(
         config=config,
@@ -200,6 +247,7 @@ def main() -> None:
     )
     runtime_seconds = time.perf_counter() - started
 
+    # Flatten the experiment result into the schema enforced by RESULTS_FIELDNAMES.
     row = {
         "timestamp_utc": utc_timestamp(),
         "label": args.label,
