@@ -1,0 +1,10 @@
+label,model,feature_mode,split_date,train_rows,test_rows,n_features,runtime_seconds,rmse,r2,stability,role
+lag6_controlled_lag24mask,ols,simple,2024-01-31,533909,79613,14,21.9,391.80,0.9999945,0.909,controlled_baseline
+controlled_add_2yr,ols,simple,2024-01-31,533909,79613,15,21.7,391.25,0.9999945,0.879,LOCKED_BEST
+controlled_add_lag24,ols,simple,2024-01-31,533909,79613,15,22.6,391.66,0.9999945,0.909,minor_evidence
+controlled_lag24_2yr,ols,simple,2024-01-31,533909,79613,16,22.1,391.20,0.9999945,0.879,secondary_redundant
+controlled_add_lag12,ols,simple,2024-01-31,532868,79612,15,21.8,392.82,0.9999945,0.909,dropped_worse
+controlled_add_yoy,ols,simple,2024-01-31,532868,79612,15,21.4,392.15,0.9999945,0.848,dropped_worse
+lasso_lag6_2yr_controlled,lasso,simple,2024-01-31,533909,79613,15,30.5,807.16,0.9999767,0.671,dropped_model
+hgb_lag6_2yr_controlled,random_forest,simple,2024-01-31,533909,79613,15,27.1,5230.65,0.9094577,1.000,dropped_model
+lag6_baseline_uncontrolled,ols,simple,2024-01-31,590021,79855,14,22.3,393.89,0.9999944,0.909,uncontrolled_reference
