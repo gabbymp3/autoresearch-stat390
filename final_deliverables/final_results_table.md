@@ -1,12 +1,5 @@
 # Final Results Table
 
-**Project:** AutoResearch for feature selection in county-level housing-price forecasting
-**Target:** out-of-sample test **RMSE** on Zillow `zhvi` (county-by-month panel)
-**Fixed evaluator / split:** all rows on/after `2024-01-31` are test data, frozen in `run.py`
-**Locked final candidate:** OLS · `simple` feature mode · controlled 24-period warmup (long-lag NaN mask) · **+ `zhvi_2yr_growth`**
-**Source runs:** Week 5 scope-lock session `artifacts/week5-20260510-1/` (see `experiment_archive.csv`)
-**Lock status:** LOCKED — no edits after this point. Test split opened once at confirmation; results not used for further tuning.
-
 ---
 
 ## 1. Locked final candidate — key metrics
