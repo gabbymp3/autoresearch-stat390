@@ -1,8 +1,13 @@
-# AutoResearch for Feature Selection in Panel Data - Predicting Housing Prices
+# AutoResearch for County-Level Housing-Price Forecasting
+
+An AutoResearch loop that asks which features best predict county-level housing prices over time.
+The target is the Zillow Home Value Index (zhvi), evaluated on a fixed county-by-month holdout.
 
 This repo tries to answer one question:
 
-Which variables do the best job predicting county-level housing prices over time?
+Which engineered features (short- and
+long-horizon lags, momentum, growth rates) and which national macro variables improve a simple OLS
+forecast over a fixed baseline?
 
 The target is Zillow Home Value Index (`zhvi`).
 
